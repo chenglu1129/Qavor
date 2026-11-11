@@ -1,7 +1,21 @@
-.hljs-theme-light {
-  @import '../../../node_modules/highlight.js/styles/github.css';
-}
+/* highlight.js 主题
+ *
+ * 注意：@import 必须位于文件最顶部。此前这里写成了
+ *   .hljs-theme-light { @import '../../../node_modules/...'; }
+ * —— 嵌套在规则内的 @import 在 CSS 里无效，构建时被提升到产物顶部，
+ * 而相对路径 ../../../node_modules/... 在浏览器里解析成
+ * http://<host>/node_modules/...，线上必然 404，
+ * 进而让整张 chunk 的样式表触发 error 事件（控制台报
+ * "Unable to preload CSS for .../AgentView-*.css"），整个路由白屏。
+ *
+ * 这里改用包名导入，交给 Vite 在构建期解析并内联进产物。
+ * 两个主题按“后写优先”顺序加载，与之前构建产物中的提升顺序一致。
+ */
+@import 'highlight.js/styles/github.css';
+@import 'highlight.js/styles/github-dark.css';
 
-.hljs-theme-dark {
-  @import '../../../node_modules/highlight.js/styles/github-dark.css';
+.hljs-theme-light .hljs,
+.hljs-theme-dark .hljs {
+  /* 预留：主题差异由上面的主题文件提供，这里只保证代码块可滚动 */
+  overflow-x: auto;
 }
