@@ -55,6 +55,8 @@ type FetchRemoteModelsRequest struct {
 	BaseURL  string `json:"base_url" binding:"required,max=500"`
 	APIKey   string `json:"api_key" binding:"omitempty,max=500"`
 	Protocol string `json:"protocol" binding:"omitempty,oneof=openai ollama"`
+	// ModelID 编辑已有配置时可传：API Key 留空时回退到该配置已保存的密钥，避免用户重复粘贴
+	ModelID uint `json:"model_id" binding:"omitempty,min=1"`
 }
 
 // ModelConnectionTestRequest 模型连接测试请求

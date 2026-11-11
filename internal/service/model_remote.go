@@ -32,6 +32,8 @@ func (s *modelService) FetchRemoteModels(ctx context.Context, req *request.Fetch
 	ctx, cancel := context.WithTimeout(ctx, defaultRemoteModelsTimeout)
 	defer cancel()
 
+	apiKey := s.resolveRemoteModelsKey(req)
+
 	var (
 		models []string
 		err    error
@@ -39,7 +41,7 @@ func (s *modelService) FetchRemoteModels(ctx context.Context, req *request.Fetch
 	if protocol == "ollama" {
 		models, err = fetchOllamaModels(ctx, baseURL)
 	} else {
-		models, err = fetchOpenAICompatibleModels(ctx, baseURL, req.APIKey)
+		models, err = fetchOpenAICompatibleModels(ctx, baseURL, apiKey)
 	}
 	if err != nil {
 		// 空列表等业务错误直接返回友好提示
@@ -48,12 +50,29 @@ func (s *modelService) FetchRemoteModels(ctx context.Context, req *request.Fetch
 		}
 		// 复用公共错误分类：超时/连接失败/认证失败等转友好提示，detail 脱敏原始错误
 		classified := pkgllm.ClassifyError(err)
-		return nil, errors.NewWithDetail(errors.CodeLLMRequestFailed, classified.Friendly, redactConnectionTestError(err, req.APIKey))
+		return nil, errors.NewWithDetail(errors.CodeLLMRequestFailed, classified.Friendly, redactConnectionTestError(err, apiKey))
 	}
 	if len(models) == 0 {
 		return nil, errors.New(errors.CodeLLMResponseInvalid, "未获取到模型列表，请确认该服务已部署模型")
 	}
 	return models, nil
+}
+
+// resolveRemoteModelsKey 解析拉取列表使用的 API Key。
+// 优先使用请求携带的 Key；编辑已有配置时用户通常不会重新粘贴密钥，此时回退到已保存配置的解密 Key。
+// 解析失败按匿名请求继续（上游会返回 401，前端仍能给出明确提示），不阻塞流程。
+func (s *modelService) resolveRemoteModelsKey(req *request.FetchRemoteModelsRequest) string {
+	if key := strings.TrimSpace(req.APIKey); key != "" {
+		return key
+	}
+	if req.ModelID == 0 {
+		return ""
+	}
+	saved, err := s.GetModelWithDecryptedKey(req.ModelID)
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(saved.APIKey)
 }
 
 // fetchOpenAICompatibleModels 从 OpenAI 兼容的 /models 接口拉取模型列表。
